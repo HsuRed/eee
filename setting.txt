@@ -1,0 +1,73 @@
+if grep -q "release 8" /etc/redhat-release || grep -q "release 9" /etc/redhat-release ; then
+
+        #echo "restrict ntp01.chimei.com.tw" >> /etc/chrony.conf
+        sed -i "s/pool 2.rhel.pool.ntp.org iburst/#pool 2.rhel.pool.ntp.org iburst/g" /etc/chrony.conf
+        sed -i "/#pool 2.rhel.pool.ntp.org iburst/a server 10.1.1.239 prefer\nserver ntp01.chimei.com.tw" /etc/chrony.conf
+        sudo systemctl start chronyd
+        sudo systemctl enable chronyd
+        sudo systemctl status chronyd
+
+else
+        sed -i "/restrict ::1/a restrict ntp01.chimei.com.tw " /etc/ntp.conf
+        sed -i "s/server 0.rhel.pool.ntp.org/#server 0.rhel.pool.ntp.org/g" /etc/ntp.conf
+        sed -i "s/server 1.rhel.pool.ntp.org/#server 1.rhel.pool.ntp.org/g" /etc/ntp.conf
+        sed -i "s/server 2.rhel.pool.ntp.org/#server 2.rhel.pool.ntp.org/g" /etc/ntp.conf
+        sed -i "s/server 3.rhel.pool.ntp.org/#server 3.rhel.pool.ntp.org/g" /etc/ntp.conf
+        sed -i "/#server 3.rhel.pool.ntp.org/a server 10.1.1.239 prefer\nserver ntp01.chimei.com.tw" /etc/ntp.conf
+        sudo systemctl start ntpd
+        sudo systemctl enable ntpd
+        sudo systemctl status ntpd
+
+
+sed -i.bak -e 's/^\(PASS_MAX_DAYS\).*/\1   90/' /etc/login.defs
+sed -i.bak -e 's/^\(PASS_MIN_DAYS\).*/\1   1/' /etc/login.defs
+sed -i.bak -e 's/^\(PASS_MIN_LEN\).*/\1   8/' /etc/login.defs
+sed -i.bak -e 's/^\(PASS_WARN_AGE\).*/\1   7/' /etc/login.defs
+
+useradd -m joey
+echo "joey:CHImei@304" | chpasswd
+echo "***" | passwd --stdin joey
+
+useradd -m red
+echo "red:CHImei@217" | chpasswd
+echo "***" | passwd --stdin red
+
+useradd -m james
+echo "james:chiMEI@336" | chpasswd
+echo "***" | passwd --stdin james
+
+useradd -m jadson
+echo "jadson:chiMEI@490" | chpasswd
+echo "***" | passwd --stdin jadson
+
+echo 'joey ALL=(ALL)    NOPASSWD: ALL' >> /etc/sudoers
+echo 'red ALL=(ALL)             NOPASSWD: ALL' >> /etc/sudoers
+echo 'james ALL=(ALL)   NOPASSWD: ALL' >> /etc/sudoers
+echo 'jadson ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+
+#disabled firewall---------------------------------
+sudo systemctl stop firewalld
+sudo systemctl disable firewalld
+sudo systemctl status firewalld
+
+#disable Selinux----------------------------------
+
+sed -i "s/SELINUX=enforcing/SELINUX=disabled/g" /etc/selinux/config
+getenforce
+
+#sshd change---------------------------------------
+sed -i '/#ClientAliveInterval/c\ClientAliveInterval 900' /etc/ssh/sshd_config
+sed -i '/#ClientAliveCountMax/c\ClientAliveCountMax 0' /etc/ssh/sshd_config
+sed -i "s/GSSAPIAuthentication/#GssAPIAuthentication/g" /etc/ssh/sshd_config
+sudo systemctl restart sshd
+sudo systemctl status sshd
+sudo cat /etc/ssh/sshd_config | grep -i ClientAlive
+cat /etc/ssh/sshd_config | grep GSSAPIAuthentication
+
+#Disable IPv6
+sed -i "s/quiet/quiet ipv6.disable=1/g" /etc/default/grub
+grub2-mkconfig -o /boot/efi/EFI/redhat/grub.cfg
+
+#Download RedHat Yum Repo
+wget -P /etc/yum.repo.d/ http://10.1.31.117/repo/RHEL9.repo
